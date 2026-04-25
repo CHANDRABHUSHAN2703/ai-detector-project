@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Content Detector</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <div>
+        <h1>AI Content Detector</h1>
+        <p>Upload a PDF, Word file, or paste text to get an AI score.</p>
+      </div>
+    
+    </header>
+
+    <section class="card">
+      <form id="detectForm">
+        <label for="text">Paste text</label>
+        <textarea id="text" name="text" rows="8" placeholder="Paste text here..."></textarea>
+
+        <div class="divider">or</div>
+
+        <label for="file">Upload file</label>
+        <input id="file" name="file" type="file" accept=".txt,.pdf,.docx" />
+
+        <button type="submit">Analyze</button>
+      </form>
+    </section>
+
+    <section id="resultCard" class="card hidden">
+      <h2>Result</h2>
+      <div class="score-wrap">
+        <div class="score" id="aiScore">0%</div>
+        <div>
+          <div id="label" class="label">Waiting...</div>
+          <div class="muted" id="meta"></div>
+        </div>
+      </div>
+
+      <div class="meter">
+        <div id="meterFill" class="meter-fill"></div>
+      </div>
+
+      <div class="grid">
+        <div class="stat">
+          <span>Classifier AI probability</span>
+          <strong id="classifierProb">0%</strong>
+        </div>
+        <div class="stat">
+          <span>Heuristic AI score</span>
+          <strong id="heuristicScore">0%</strong>
+        </div>
+        <div class="stat">
+          <span>Confidence</span>
+          <strong id="confidence">0%</strong>
+        </div>
+        <div class="stat">
+          <span>Text length</span>
+          <strong id="textLength">0</strong>
+        </div>
+      </div>
+
+      <details class="details">
+        <summary>Detection details</summary>
+        <pre id="detailsJson"></pre>
+      </details>
+    </section>
+
+    <section id="errorCard" class="card error hidden"></section>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
