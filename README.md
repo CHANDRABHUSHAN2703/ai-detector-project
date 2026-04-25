@@ -1,32 +1,77 @@
 # AI Content Detector
 
-A small Flask project that detects whether text, PDF, or Word documents are likely AI-generated and returns an AI score.
+A Flask-based web application that detects whether text, PDF, or Word files are AI-generated or human-written using Machine Learning.
+
+---
 
 ## Features
-- Upload `.txt`, `.pdf`, or `.docx`
-- Extract text automatically
-- Predict AI-likeness with an ML classifier
-- Show an AI score and a readable label
-- Fallback heuristics when the model is not trained yet
 
-## Project structure
-- `app.py` — Flask app
-- `train_model.py` — trains the model and creates `models/ai_detector.joblib`
-- `detector.py` — loading, feature extraction, prediction
-- `templates/index.html` — UI
-- `static/style.css` — styling
-- `static/script.js` — small client-side helpers
+*  Upload TXT, PDF, DOCX files
+*  AI probability score
+*  Machine learning-based classification
+*  Simple web interface
 
-## Setup
+---
+
+##  How It Works
+
+* Extracts text from files
+* Applies NLP preprocessing
+* Uses ML model (TF-IDF + Logistic Regression)
+* Outputs AI probability score
+
+---
+
+## 📸 Demo Screenshots
+
+
+
+---
+
+##  Tech Stack
+
+* Python
+* Flask
+* scikit-learn
+* HTML/CSS
+
+---
+
+## ▶️ How to Run
+
 ```bash
 pip install -r requirements.txt
 python train_model.py
 python app.py
 ```
 
-Open `http://127.0.0.1:5000`
+---
 
-## Notes
-- This is a baseline academic project, not a perfect detector.
-- Accuracy depends heavily on the training data you use.
-- For a stronger project, train on a large, diverse dataset of human and AI text.
+## Sample Output
+
+| Input Type | Result              |
+| ---------- | ------------------- |
+| Human Text | 0.25 (Likely Human) |
+| AI Text    | 0.89 (Likely AI)    |
+
+---
+
+##  Limitations
+
+* Not 100% accurate
+* Can be fooled by paraphrasing
+* Works best on longer text
+
+---
+
+## Future Improvements
+
+* BERT-based detection
+* Sentence-level highlighting
+* Cloud deployment
+
+---
+
+## Author
+
+Chandra Bhushan
