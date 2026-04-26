@@ -1,165 +1,138 @@
-import math
 import os
 import re
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, List, Tuple
-
+import math
 import joblib
-import numpy as np
-from pypdf import PdfReader
 from docx import Document
+from pypdf import PdfReader
 
+MODEL_PATH = os.path.join("models", "ai_detector.joblib")
 
-MODEL_PATH = Path("models/ai_detector.joblib")
+class AIDetector:
+    def __init__(self, model_path: str = MODEL_PATH):
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"Model not found at {model_path}. Run train_model.py first."
+            )
+        self.model = joblib.load(model_path)
 
+    def extract_text_from_txt(self, file_path: str) -> str:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
 
-@dataclass
-class PredictionResult:
-    label: str
-    ai_score: float
-    classifier_prob_ai: float
-    heuristic_score: float
-    confidence: float
-    text_length: int
-    extracted_from: str
-    details: Dict[str, float]
+    def extract_text_from_pdf(self, file_path: str) -> str:
+        text = []
+        reader = PdfReader(file_path)
+        for page in reader.pages:
+            page_text = page.extract_text() or ""
+            text.append(page_text)
+        return "\n".join(text)
 
+    def extract_text_from_docx(self, file_path: str) -> str:
+        doc = Document(file_path)
+        return "\n".join([p.text for p in doc.paragraphs])
 
-def clean_text(text: str) -> str:
-    text = text.replace("\x00", " ")
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    def split_sentences(self, text: str):
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            return []
+        parts = re.split(r"(?<=[.!?])\s+", text)
+        sentences = [s.strip() for s in parts if len(s.strip()) > 10]
+        return sentences if sentences else [text]
 
+    def clean_text(self, text: str) -> str:
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
 
-def extract_text_from_txt(file_path: str) -> str:
-    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-        return clean_text(f.read())
+    def text_stats(self, text: str):
+        sentences = self.split_sentences(text)
+        words = re.findall(r"\b\w+\b", text.lower())
 
+        word_count = len(words)
+        sentence_count = len(sentences)
+        avg_sentence_length = round(word_count / sentence_count, 2) if sentence_count else 0
 
-def extract_text_from_docx(file_path: str) -> str:
-    doc = Document(file_path)
-    parts = [p.text for p in doc.paragraphs if p.text.strip()]
-    return clean_text("\n".join(parts))
+        unique_words = len(set(words))
+        lexical_diversity = round(unique_words / word_count, 3) if word_count else 0
 
+        word_freq = {}
+        for w in words:
+            word_freq[w] = word_freq.get(w, 0) + 1
+        repeated_words = sum(1 for _, c in word_freq.items() if c > 2)
+        repetition_ratio = round(repeated_words / len(word_freq), 3) if word_freq else 0
 
-def extract_text_from_pdf(file_path: str) -> str:
-    reader = PdfReader(file_path)
-    pages = []
-    for page in reader.pages:
-        pages.append(page.extract_text() or "")
-    return clean_text("\n".join(pages))
+        return {
+            "word_count": word_count,
+            "sentence_count": sentence_count,
+            "avg_sentence_length": avg_sentence_length,
+            "lexical_diversity": lexical_diversity,
+            "repetition_ratio": repetition_ratio
+        }
 
+    def explanation_signals(self, stats):
+        signals = []
 
-def extract_text(file_path: str) -> Tuple[str, str]:
-    suffix = Path(file_path).suffix.lower()
-    if suffix == ".txt":
-        return extract_text_from_txt(file_path), "txt"
-    if suffix == ".docx":
-        return extract_text_from_docx(file_path), "docx"
-    if suffix == ".pdf":
-        return extract_text_from_pdf(file_path), "pdf"
-    raise ValueError("Unsupported file type. Please upload a .txt, .pdf, or .docx file.")
+        if stats["lexical_diversity"] and stats["lexical_diversity"] < 0.55:
+            signals.append("Low lexical diversity")
+        if stats["repetition_ratio"] > 0.12:
+            signals.append("Repeated word usage detected")
+        if stats["avg_sentence_length"] and 12 <= stats["avg_sentence_length"] <= 25:
+            signals.append("Very uniform sentence style")
+        if stats["sentence_count"] < 3:
+            signals.append("Very short text; confidence may be lower")
 
+        return signals
 
-def sentence_split(text: str) -> List[str]:
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
-    return [s.strip() for s in sentences if s.strip()]
+    def score_label(self, score: float):
+        if score >= 0.70:
+            return "Likely AI"
+        if score >= 0.40:
+            return "Mixed"
+        return "Likely Human"
 
+    def analyze_text(self, text: str):
+        text = self.clean_text(text)
+        if not text:
+            return {
+                "overall_score": 0.0,
+                "label": "No Text",
+                "sentence_results": [],
+                "stats": {},
+                "signals": []
+            }
 
-def word_tokens(text: str) -> List[str]:
-    return re.findall(r"[A-Za-z']+", text.lower())
+        overall_prob = float(self.model.predict_proba([text])[0][1])
+        sentences = self.split_sentences(text)
 
+        sentence_results = []
+        for sentence in sentences:
+            prob = float(self.model.predict_proba([sentence])[0][1])
+            sentence_results.append({
+                "sentence": sentence,
+                "ai_score": round(prob, 4),
+                "label": self.score_label(prob)
+            })
 
-def heuristic_features(text: str) -> Dict[str, float]:
-    words = word_tokens(text)
-    sentences = sentence_split(text)
-    total_words = len(words)
-    total_sentences = max(len(sentences), 1)
-    unique_words = len(set(words))
+        stats = self.text_stats(text)
+        signals = self.explanation_signals(stats)
 
-    avg_sentence_length = total_words / total_sentences
-    ttr = unique_words / max(total_words, 1)  # type-token ratio
-    repeat_ratio = 0.0
-    if total_words > 10:
-        repeat_ratio = 1.0 - (unique_words / total_words)
+        return {
+            "overall_score": round(overall_prob, 4),
+            "label": self.score_label(overall_prob),
+            "sentence_results": sentence_results,
+            "stats": stats,
+            "signals": signals
+        }
 
-    punctuation_count = len(re.findall(r"[.,;:!?]", text))
-    punctuation_density = punctuation_count / max(len(text), 1)
+    def analyze_file(self, file_path: str, file_ext: str):
+        file_ext = file_ext.lower()
 
-    long_word_ratio = 0.0
-    if total_words:
-        long_word_ratio = sum(1 for w in words if len(w) >= 8) / total_words
+        if file_ext == ".txt":
+            text = self.extract_text_from_txt(file_path)
+        elif file_ext == ".pdf":
+            text = self.extract_text_from_pdf(file_path)
+        elif file_ext == ".docx":
+            text = self.extract_text_from_docx(file_path)
+        else:
+            raise ValueError("Unsupported file type")
 
-    avg_sentence_var = 0.0
-    if len(sentences) >= 2:
-        lengths = [len(word_tokens(s)) for s in sentences]
-        avg = sum(lengths) / len(lengths)
-        avg_sentence_var = sum((x - avg) ** 2 for x in lengths) / len(lengths)
-
-    ai_like = 0.0
-    ai_like += max(0.0, min(1.0, (avg_sentence_length - 10) / 25)) * 0.30
-    ai_like += max(0.0, min(1.0, (0.45 - ttr) / 0.25)) * 0.25
-    ai_like += max(0.0, min(1.0, repeat_ratio / 0.35)) * 0.20
-    ai_like += max(0.0, min(1.0, (0.03 - punctuation_density) / 0.02)) * 0.10
-    ai_like += max(0.0, min(1.0, (long_word_ratio - 0.18) / 0.20)) * 0.15
-
-    ai_like = float(max(0.0, min(1.0, ai_like)))
-
-    return {
-        "avg_sentence_length": float(avg_sentence_length),
-        "type_token_ratio": float(ttr),
-        "repeat_ratio": float(repeat_ratio),
-        "punctuation_density": float(punctuation_density),
-        "long_word_ratio": float(long_word_ratio),
-        "sentence_length_variance": float(avg_sentence_var),
-        "heuristic_score": ai_like,
-    }
-
-
-def load_model():
-    if not MODEL_PATH.exists():
-        return None
-    return joblib.load(MODEL_PATH)
-
-
-def predict_text(text: str) -> PredictionResult:
-    text = clean_text(text)
-    if not text:
-        raise ValueError("No text found after extraction.")
-
-    model_bundle = load_model()
-    feats = heuristic_features(text)
-
-    classifier_prob_ai = 0.5
-    confidence = 0.0
-
-    if model_bundle is not None:
-        vectorizer = model_bundle["vectorizer"]
-        classifier = model_bundle["classifier"]
-        probs = classifier.predict_proba(vectorizer.transform([text]))[0]
-        class_map = model_bundle["class_map"]
-        ai_index = class_map.index(1)
-        classifier_prob_ai = float(probs[ai_index])
-        confidence = float(abs(classifier_prob_ai - 0.5) * 2.0)
-
-    ai_score = 0.7 * classifier_prob_ai + 0.3 * feats["heuristic_score"]
-    ai_score = float(max(0.0, min(1.0, ai_score)))
-
-    if ai_score >= 0.70:
-        label = "Likely AI-generated"
-    elif ai_score >= 0.45:
-        label = "Mixed / Uncertain"
-    else:
-        label = "Likely human-written"
-
-    return PredictionResult(
-        label=label,
-        ai_score=round(ai_score * 100, 2),
-        classifier_prob_ai=round(classifier_prob_ai * 100, 2),
-        heuristic_score=round(feats["heuristic_score"] * 100, 2),
-        confidence=round(confidence * 100, 2),
-        text_length=len(text),
-        extracted_from="text",
-        details={k: round(v, 4) if isinstance(v, float) else v for k, v in feats.items()},
-    )
+        return self.analyze_text(text)

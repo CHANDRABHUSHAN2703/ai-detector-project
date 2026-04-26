@@ -1,75 +1,62 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Content Detector</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
   <div class="container">
-    <header class="hero">
+    <div class="topbar">
       <div>
         <h1>AI Content Detector</h1>
-        <p>Upload a PDF, Word file, or paste text to get an AI score.</p>
+        <p class="subtitle">Upload a file or paste text to detect AI-like writing patterns.</p>
       </div>
-    
-    </header>
 
-    <section class="card">
+      <button id="themeToggle" class="theme-btn" type="button" aria-label="Toggle theme">
+        🌙
+      </button>
+    </div>
+
+    <div class="card">
       <form id="detectForm">
-        <label for="text">Paste text</label>
+        <label for="text">Paste Text</label>
         <textarea id="text" name="text" rows="8" placeholder="Paste text here..."></textarea>
 
-        <div class="divider">or</div>
+        <div class="divider">OR</div>
 
-        <label for="file">Upload file</label>
-        <input id="file" name="file" type="file" accept=".txt,.pdf,.docx" />
+        <label for="file">Upload File</label>
+        <input type="file" id="file" name="file" accept=".txt,.pdf,.docx" />
 
         <button type="submit">Analyze</button>
       </form>
-    </section>
+    </div>
 
-    <section id="resultCard" class="card hidden">
+    <div id="loading" class="loading hidden">Analyzing...</div>
+
+    <div id="errorBox" class="error hidden"></div>
+
+    <div id="resultBox" class="result hidden">
       <h2>Result</h2>
-      <div class="score-wrap">
-        <div class="score" id="aiScore">0%</div>
-        <div>
-          <div id="label" class="label">Waiting...</div>
-          <div class="muted" id="meta"></div>
-        </div>
+
+      <div class="score-row">
+        <div id="overallLabel" class="badge"></div>
+        <div id="overallScore" class="score"></div>
       </div>
 
-      <div class="meter">
-        <div id="meterFill" class="meter-fill"></div>
+      <div class="stats" id="stats"></div>
+
+      <div class="signals-box">
+        <h3>Explanation Signals</h3>
+        <ul id="signals"></ul>
       </div>
 
-      <div class="grid">
-        <div class="stat">
-          <span>Classifier AI probability</span>
-          <strong id="classifierProb">0%</strong>
-        </div>
-        <div class="stat">
-          <span>Heuristic AI score</span>
-          <strong id="heuristicScore">0%</strong>
-        </div>
-        <div class="stat">
-          <span>Confidence</span>
-          <strong id="confidence">0%</strong>
-        </div>
-        <div class="stat">
-          <span>Text length</span>
-          <strong id="textLength">0</strong>
-        </div>
+      <div class="sentences-box">
+        <h3>Sentence-level Analysis</h3>
+        <div id="sentenceResults"></div>
       </div>
-
-      <details class="details">
-        <summary>Detection details</summary>
-        <pre id="detailsJson"></pre>
-      </details>
-    </section>
-
-    <section id="errorCard" class="card error hidden"></section>
+    </div>
   </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>

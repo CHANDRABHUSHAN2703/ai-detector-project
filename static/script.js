@@ -1,41 +1,57 @@
 const form = document.getElementById("detectForm");
-const resultCard = document.getElementById("resultCard");
-const errorCard = document.getElementById("errorCard");
+const loading = document.getElementById("loading");
+const resultBox = document.getElementById("resultBox");
+const errorBox = document.getElementById("errorBox");
 
-const aiScore = document.getElementById("aiScore");
-const label = document.getElementById("label");
-const meta = document.getElementById("meta");
-const meterFill = document.getElementById("meterFill");
-const classifierProb = document.getElementById("classifierProb");
-const heuristicScore = document.getElementById("heuristicScore");
-const confidence = document.getElementById("confidence");
-const textLength = document.getElementById("textLength");
-const detailsJson = document.getElementById("detailsJson");
+const overallLabel = document.getElementById("overallLabel");
+const overallScore = document.getElementById("overallScore");
+const statsBox = document.getElementById("stats");
+const signalsBox = document.getElementById("signals");
+const sentenceResultsBox = document.getElementById("sentenceResults");
+const themeToggle = document.getElementById("themeToggle");
 
-function showError(message) {
-  errorCard.textContent = message;
-  errorCard.classList.remove("hidden");
-  resultCard.classList.add("hidden");
+function setTheme(theme) {
+  document.body.classList.toggle("dark", theme === "dark");
+  themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
+  localStorage.setItem("theme", theme);
 }
 
-function showResult(data) {
-  errorCard.classList.add("hidden");
-  resultCard.classList.remove("hidden");
+function initTheme() {
+  const saved = localStorage.getItem("theme");
+  if (saved === "dark" || saved === "light") {
+    setTheme(saved);
+  } else {
+    setTheme(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  }
+}
 
-  aiScore.textContent = `${data.ai_score.toFixed(2)}%`;
-  label.textContent = data.label;
-  meta.textContent = `Source: ${data.extracted_from} • Score range: 0–100`;
-  meterFill.style.width = `${Math.max(0, Math.min(100, data.ai_score))}%`;
+themeToggle.addEventListener("click", () => {
+  const nextTheme = document.body.classList.contains("dark") ? "light" : "dark";
+  setTheme(nextTheme);
+});
 
-  classifierProb.textContent = `${data.classifier_prob_ai.toFixed(2)}%`;
-  heuristicScore.textContent = `${data.heuristic_score.toFixed(2)}%`;
-  confidence.textContent = `${data.confidence.toFixed(2)}%`;
-  textLength.textContent = String(data.text_length);
-  detailsJson.textContent = JSON.stringify(data.details, null, 2);
+initTheme();
+
+function showError(message) {
+  errorBox.textContent = message || "Something went wrong.";
+  errorBox.classList.remove("hidden");
+}
+
+function hideError() {
+  errorBox.textContent = "";
+  errorBox.classList.add("hidden");
+}
+
+function scoreToPercent(score) {
+  return Math.round(score * 100);
 }
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
+  hideError();
+  resultBox.classList.add("hidden");
+  loading.classList.remove("hidden");
+
   const formData = new FormData(form);
 
   try {
@@ -45,13 +61,58 @@ form.addEventListener("submit", async (e) => {
     });
 
     const data = await response.json();
-    if (!response.ok) {
-      showError(data.error || "Something went wrong.");
+
+    if (!data.success) {
+      showError(data.error || "Something went wrong");
       return;
     }
 
-    showResult(data);
+    const result = data.result;
+
+    overallLabel.textContent = result.label;
+    overallScore.textContent = `${scoreToPercent(result.overall_score)}% AI Score`;
+
+    overallLabel.className = "badge " + (
+      result.label === "Likely AI" ? "ai" :
+      result.label === "Mixed" ? "mixed" :
+      "human"
+    );
+
+    const stats = result.stats || {};
+    statsBox.innerHTML = `
+      <p><strong>Words:</strong> ${stats.word_count ?? 0}</p>
+      <p><strong>Sentences:</strong> ${stats.sentence_count ?? 0}</p>
+      <p><strong>Avg Sentence Length:</strong> ${stats.avg_sentence_length ?? 0}</p>
+      <p><strong>Lexical Diversity:</strong> ${stats.lexical_diversity ?? 0}</p>
+      <p><strong>Repetition Ratio:</strong> ${stats.repetition_ratio ?? 0}</p>
+    `;
+
+    const signals = result.signals || [];
+    signalsBox.innerHTML = signals.length
+      ? signals.map(s => `<li>${s}</li>`).join("")
+      : "<li>No strong AI signals detected.</li>";
+
+    const sentenceResults = result.sentence_results || [];
+    sentenceResultsBox.innerHTML = sentenceResults.map((item, index) => {
+      const cls = item.label === "Likely AI" ? "sentence ai"
+        : item.label === "Mixed" ? "sentence mixed"
+        : "sentence human";
+
+      return `
+        <div class="${cls}">
+          <div class="sentence-head">
+            <strong>Sentence ${index + 1}</strong>
+            <span>${scoreToPercent(item.ai_score)}% AI</span>
+          </div>
+          <p>${item.sentence}</p>
+        </div>
+      `;
+    }).join("");
+
+    resultBox.classList.remove("hidden");
   } catch (err) {
-    showError("Failed to contact the server.");
+    showError("Failed to analyze text");
+  } finally {
+    loading.classList.add("hidden");
   }
 });

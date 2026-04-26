@@ -1,76 +1,59 @@
-from pathlib import Path
 import os
 import uuid
-
-from flask import Flask, flash, jsonify, render_template, request
-
-from detector import extract_text, predict_text
-
-
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
+from flask import Flask, render_template, request, jsonify
+from werkzeug.utils import secure_filename
+from detector import AIDetector
 
 app = Flask(__name__)
-app.secret_key = "ai-detector-secret-key"
-app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20 MB
+app.config["UPLOAD_FOLDER"] = "uploads"
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
+ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx"}
 
-@app.route("/", methods=["GET"])
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+detector = AIDetector()
+
+def allowed_file(filename):
+    return "." in filename and os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route("/")
 def index():
     return render_template("index.html")
-
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
-        file = request.files.get("file")
-        manual_text = request.form.get("text", "").strip()
+        text_input = request.form.get("text", "").strip()
+        uploaded_file = request.files.get("file")
 
-        extracted = ""
-        source = "text"
+        if text_input:
+            result = detector.analyze_text(text_input)
+            return jsonify({"success": True, "result": result})
 
-        if file and file.filename:
-            ext = Path(file.filename).suffix.lower()
-            if ext not in {".txt", ".pdf", ".docx"}:
-                return jsonify({"error": "Only .txt, .pdf, and .docx files are supported."}), 400
+        if uploaded_file and uploaded_file.filename:
+            if not allowed_file(uploaded_file.filename):
+                return jsonify({"success": False, "error": "Only .txt, .pdf, and .docx files are allowed"})
 
-            safe_name = f"{uuid.uuid4().hex}{ext}"
-            save_path = UPLOAD_DIR / safe_name
-            file.save(save_path)
+            ext = os.path.splitext(uploaded_file.filename)[1].lower()
+            safe_name = secure_filename(uploaded_file.filename)
+            unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+            file_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+            uploaded_file.save(file_path)
 
-            extracted, source = extract_text(str(save_path))
+            result = detector.analyze_file(file_path, ext)
+
             try:
-                os.remove(save_path)
-            except OSError:
+                os.remove(file_path)
+            except Exception:
                 pass
-        elif manual_text:
-            extracted = manual_text
-            source = "text"
-        else:
-            return jsonify({"error": "Please enter text or upload a file."}), 400
 
-        result = predict_text(extracted)
-        result.extracted_from = source
+            return jsonify({"success": True, "result": result})
 
-        return jsonify({
-            "label": result.label,
-            "ai_score": result.ai_score,
-            "classifier_prob_ai": result.classifier_prob_ai,
-            "heuristic_score": result.heuristic_score,
-            "confidence": result.confidence,
-            "text_length": result.text_length,
-            "extracted_from": source,
-            "details": result.details,
-        })
+        return jsonify({"success": False, "error": "Please enter text or upload a file"})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({"status": "ok"})
-
+        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == "__main__":
     app.run(debug=True)
