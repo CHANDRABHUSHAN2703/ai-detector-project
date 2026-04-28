@@ -9,7 +9,7 @@ const statsBox = document.getElementById("stats");
 const signalsBox = document.getElementById("signals");
 const sentenceResultsBox = document.getElementById("sentenceResults");
 const themeToggle = document.getElementById("themeToggle");
-
+let chartInstance = null;
 function setTheme(theme) {
   document.body.classList.toggle("dark", theme === "dark");
   themeToggle.textContent = theme === "dark" ? "☀️" : "🌙";
@@ -77,6 +77,33 @@ form.addEventListener("submit", async (e) => {
       result.label === "Mixed" ? "mixed" :
       "human"
     );
+
+    const score = scoreToPercent(result.overall_score);
+
+    // Destroy previous chart
+    if (chartInstance) {
+      chartInstance.destroy();
+    }
+
+    const ctx = document.getElementById("aiChart").getContext("2d");
+
+    chartInstance = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: ["AI", "Human"],
+        datasets: [{
+          data: [score, 100 - score]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: "bottom"
+          }
+        }
+      }
+    });
 
     const stats = result.stats || {};
     statsBox.innerHTML = `

@@ -47,6 +47,10 @@
 
       <div class="stats" id="stats"></div>
 
+      <div class="chart-box">
+        <canvas id="aiChart"></canvas>
+      </div>
+
       <div class="signals-box">
         <h3>Explanation Signals</h3>
         <ul id="signals"></ul>
@@ -60,5 +64,6 @@
   </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </body>
 </html>
