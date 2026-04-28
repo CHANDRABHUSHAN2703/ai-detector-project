@@ -16,13 +16,13 @@ ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx"}
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-if not os.path.exists("models/ai_detector.joblib"):
-    import train_model
+# if not os.path.exists("models/ai_detector.joblib"):
+#     import train_model
 
 from detector import AIDetector
 from detector import AIDetector
 
-
+detector = AIDetector()
 def allowed_file(filename):
     return "." in filename and os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
 
