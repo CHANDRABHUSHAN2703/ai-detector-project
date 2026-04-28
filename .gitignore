@@ -4,3 +4,5 @@ __pycache__/
 model.pkl
 *.log
 .env
+models/
+venv/
