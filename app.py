@@ -1,4 +1,7 @@
 import os
+
+if not os.path.exists("models/ai_detector.joblib"):
+    import train_model
 import uuid
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
