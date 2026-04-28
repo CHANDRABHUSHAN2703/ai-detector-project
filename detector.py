@@ -1,19 +1,24 @@
 import os
 import re
-import math
 import joblib
 from docx import Document
 from pypdf import PdfReader
 
-MODEL_PATH = os.path.join("models", "ai_detector.joblib")
+MODEL_PATH = os.path.join("models", "model.joblib")
+VECTORIZER_PATH = os.path.join("models", "vectorizer.joblib")
 
 class AIDetector:
-    def __init__(self, model_path: str = MODEL_PATH):
+    def __init__(self, model_path: str = MODEL_PATH, vectorizer_path: str = VECTORIZER_PATH):
         if not os.path.exists(model_path):
             raise FileNotFoundError(
                 f"Model not found at {model_path}. Run train_model.py first."
             )
+        if not os.path.exists(vectorizer_path):
+            raise FileNotFoundError(
+                f"Vectorizer not found at {vectorizer_path}. Run train_model.py first."
+            )
         self.model = joblib.load(model_path)
+        self.vectorizer = joblib.load(vectorizer_path)
 
     def extract_text_from_txt(self, file_path: str) -> str:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -89,6 +94,13 @@ class AIDetector:
             return "Mixed"
         return "Likely Human"
 
+    def predict_ai_probability(self, text: str) -> float:
+        X = self.vectorizer.transform([text])
+        prediction = int(self.model.predict(X)[0])
+        if hasattr(self.model, "predict_proba"):
+            return float(self.model.predict_proba(X)[0][1])
+        return float(prediction)
+
     def analyze_text(self, text: str):
         text = self.clean_text(text)
         if not text:
@@ -100,12 +112,12 @@ class AIDetector:
                 "signals": []
             }
 
-        overall_prob = float(self.model.predict_proba([text])[0][1])
+        overall_prob = self.predict_ai_probability(text)
         sentences = self.split_sentences(text)
 
         sentence_results = []
         for sentence in sentences:
-            prob = float(self.model.predict_proba([sentence])[0][1])
+            prob = self.predict_ai_probability(sentence)
             sentence_results.append({
                 "sentence": sentence,
                 "ai_score": round(prob, 4),
