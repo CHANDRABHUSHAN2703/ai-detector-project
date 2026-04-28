@@ -8,6 +8,7 @@ from werkzeug.utils import secure_filename
 from detector import AIDetector
 
 app = Flask(__name__)
+detector = AIDetector()
 app.config["UPLOAD_FOLDER"] = "uploads"
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
@@ -18,7 +19,9 @@ os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 if not os.path.exists("models/ai_detector.joblib"):
     import train_model
 
-detector = AIDetector()
+from detector import AIDetector
+from detector import AIDetector
+
 
 def allowed_file(filename):
     return "." in filename and os.path.splitext(filename)[1].lower() in ALLOWED_EXTENSIONS
