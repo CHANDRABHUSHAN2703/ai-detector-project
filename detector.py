@@ -11,7 +11,7 @@ MODEL_PATH = os.path.join(BASE_DIR, "models", "ai_pipeline.joblib")
 class AIDetector:
     def __init__(self):
         if not os.path.exists(MODEL_PATH):
-            raise FileNotFoundError(f"Model not found at {MODEL_PATH}. Run train_model.py first.")
+            raise FileNotFoundError(f"Model not found at: {MODEL_PATH}")
         self.pipeline = joblib.load(MODEL_PATH)
 
     def extract_text_from_txt(self, file_path: str) -> str:
@@ -48,7 +48,6 @@ class AIDetector:
         word_count = len(words)
         sentence_count = len(sentences)
         avg_sentence_length = round(word_count / sentence_count, 2) if sentence_count else 0
-
         unique_words = len(set(words))
         lexical_diversity = round(unique_words / word_count, 3) if word_count else 0
 

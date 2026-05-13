@@ -18,7 +18,6 @@ def main():
         raise FileNotFoundError(f"dataset.csv not found at {DATASET_PATH}")
 
     data = pd.read_csv(DATASET_PATH)
-
     data = data.dropna(subset=["text", "label"])
     data["text"] = data["text"].astype(str).str.strip()
     data = data[data["text"] != ""]
