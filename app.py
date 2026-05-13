@@ -4,8 +4,10 @@ from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
 from detector import AIDetector
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = "uploads"
+app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 
 ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx"}

@@ -4,17 +4,14 @@ import joblib
 from docx import Document
 from pypdf import PdfReader
 
-MODEL_PATH = os.path.join("models", "ai_pipeline.joblib")
-# VECTORIZER_PATH = os.path.join("models", "vectorizer.joblib")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "ai_pipeline.joblib")
 
-MODEL_PATH = os.path.join("models", "ai_pipeline.joblib")
 
 class AIDetector:
     def __init__(self):
         if not os.path.exists(MODEL_PATH):
-            raise FileNotFoundError("Model not found. Run train_model.py")
-
-        # Load full pipeline
+            raise FileNotFoundError(f"Model not found at {MODEL_PATH}. Run train_model.py first.")
         self.pipeline = joblib.load(MODEL_PATH)
 
     def extract_text_from_txt(self, file_path: str) -> str:
@@ -42,8 +39,7 @@ class AIDetector:
         return sentences if sentences else [text]
 
     def clean_text(self, text: str) -> str:
-        text = re.sub(r"\s+", " ", text).strip()
-        return text
+        return re.sub(r"\s+", " ", text).strip()
 
     def text_stats(self, text: str):
         sentences = self.split_sentences(text)
@@ -72,7 +68,6 @@ class AIDetector:
 
     def explanation_signals(self, stats):
         signals = []
-
         if stats["lexical_diversity"] and stats["lexical_diversity"] < 0.55:
             signals.append("Low lexical diversity")
         if stats["repetition_ratio"] > 0.12:
@@ -81,7 +76,6 @@ class AIDetector:
             signals.append("Very uniform sentence style")
         if stats["sentence_count"] < 3:
             signals.append("Very short text; confidence may be lower")
-
         return signals
 
     def score_label(self, score: float):
@@ -132,7 +126,6 @@ class AIDetector:
 
     def analyze_file(self, file_path: str, file_ext: str):
         file_ext = file_ext.lower()
-
         if file_ext == ".txt":
             text = self.extract_text_from_txt(file_path)
         elif file_ext == ".pdf":
@@ -141,5 +134,4 @@ class AIDetector:
             text = self.extract_text_from_docx(file_path)
         else:
             raise ValueError("Unsupported file type")
-
         return self.analyze_text(text)
